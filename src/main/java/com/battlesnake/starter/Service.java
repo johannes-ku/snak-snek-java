@@ -68,17 +68,15 @@ public class Service {
 
     private byte[][] getBoardScores(MoveRequest moveRequest) {
         byte[][] board = new byte[moveRequest.board.height][moveRequest.board.width];
-        
+
         for (Coordinate snak : moveRequest.board.food) {
             List<Hotness> neighbours = getNeighbours(snak, moveRequest.board, (byte) 0, (byte) FOOD_HOTNESS_DEPTH);
             for (Hotness neighbour : neighbours) {
-                byte myHotness = (byte) (127 / neighbour.depth);
+                byte myHotness = (byte) (127 / (neighbour.depth + 1));
                 if (board[neighbour.coordinate.x][neighbour.coordinate.y] == 0) {
                     board[neighbour.coordinate.x][neighbour.coordinate.y] = myHotness;
                 } else if (board[neighbour.coordinate.x][neighbour.coordinate.y] < myHotness) {
-                    board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) (board[neighbour.coordinate.x][neighbour.coordinate.y] / 2 + myHotness);
-                } else if (board[neighbour.coordinate.x][neighbour.coordinate.y] > myHotness) {
-                    board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) (board[neighbour.coordinate.x][neighbour.coordinate.y] + myHotness / 2);
+                    board[neighbour.coordinate.x][neighbour.coordinate.y] = myHotness;
                 }
             }
         }
@@ -93,8 +91,9 @@ public class Service {
             if (!snek.id.equals(moveRequest.you.id) && snek.body.size() + 1 >= moveRequest.you.body.size()) {
                 List<Hotness> neighbours = getNeighbours(snek.head, moveRequest.board, (byte) 0, (byte) 1);
                 for (Hotness neighbour : neighbours) {
-                    if (board[neighbour.coordinate.x][neighbour.coordinate.y] == 0) {
-                        board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) ((Byte.MIN_VALUE / 2) / neighbour.depth);
+                    byte targetColdness = (byte) ((Byte.MIN_VALUE / 2) / (neighbour.depth + 1));
+                    if (board[neighbour.coordinate.x][neighbour.coordinate.y] > targetColdness) {
+                        board[neighbour.coordinate.x][neighbour.coordinate.y] = targetColdness;
                     }
                 }
             }
@@ -121,17 +120,15 @@ public class Service {
         for (int i = 0; i < board.length; i++) {
             byte[] row = board[i];
             for (int j = 0; j < row.length; j++) {
-                if (board[i][j] == 0) {
-                    Coordinate distanceFromBorders = getDistanceFromBorder(board.length, board[0].length, i, j);
-                    byte totalColdness = 0;
-                    if (distanceFromBorders.x <= startingColdness) {
-                        totalColdness += (byte) ((byte) (startingColdness - distanceFromBorders.x) * -1);
-                    }
-                    if (distanceFromBorders.y <= startingColdness) {
-                        totalColdness += (byte) ((byte) (startingColdness - distanceFromBorders.y) * -1);
-                    }
-                    board[i][j] = totalColdness;
+                Coordinate distanceFromBorders = getDistanceFromBorder(board.length, board[0].length, i, j);
+                byte totalColdness = 0;
+                if (distanceFromBorders.x <= startingColdness) {
+                    totalColdness -= startingColdness - distanceFromBorders.x;
                 }
+                if (distanceFromBorders.y <= startingColdness) {
+                    totalColdness -= startingColdness - distanceFromBorders.y;
+                }
+                board[i][j] += totalColdness;
             }
         }
         return board;
@@ -139,8 +136,8 @@ public class Service {
 
     private Coordinate getDistanceFromBorder(int boardHeight, int boardWidth, int x, int y) {
         Coordinate distance = new Coordinate();
-        distance.x = Math.max(x, boardHeight - x);
-        distance.y = Math.max(y, boardWidth - y);
+        distance.x = Math.min(x, boardHeight - x);
+        distance.y = Math.min(y, boardWidth - y);
         return distance;
     }
 
