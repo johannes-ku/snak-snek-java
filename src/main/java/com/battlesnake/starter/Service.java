@@ -68,6 +68,21 @@ public class Service {
 
     private byte[][] getBoardScores(MoveRequest moveRequest) {
         byte[][] board = new byte[moveRequest.board.height][moveRequest.board.width];
+        
+        for (Coordinate snak : moveRequest.board.food) {
+            List<Hotness> neighbours = getNeighbours(snak, moveRequest.board, (byte) 1, (byte) FOOD_HOTNESS_DEPTH);
+            for (Hotness neighbour : neighbours) {
+                byte myHotness = (byte) (127 / neighbour.depth);
+                if (board[neighbour.coordinate.x][neighbour.coordinate.y] == 0) {
+                    board[neighbour.coordinate.x][neighbour.coordinate.y] = myHotness;
+                } else if (board[neighbour.coordinate.x][neighbour.coordinate.y] < myHotness) {
+                    board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) (board[neighbour.coordinate.x][neighbour.coordinate.y] / 2 + myHotness);
+                } else if (board[neighbour.coordinate.x][neighbour.coordinate.y] > myHotness) {
+                    board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) (board[neighbour.coordinate.x][neighbour.coordinate.y] + myHotness / 2);
+                }
+            }
+        }
+
         for (BattleSnake snek : moveRequest.board.snakes) {
             board[snek.head.x][snek.head.y] = Byte.MIN_VALUE;
             for (int i = 0; i < snek.body.size(); i++) {
@@ -85,16 +100,7 @@ public class Service {
             }
 
         }
-        for (Coordinate snak : moveRequest.board.food) {
-            board[snak.x][snak.y] = Byte.MAX_VALUE;
-            List<Hotness> neighbours = getNeighbours(snak, moveRequest.board, (byte) 1, (byte) FOOD_HOTNESS_DEPTH);
-            for (Hotness neighbour : neighbours) {
-                byte myHotness = (byte) (127 / neighbour.depth);
-                if (board[neighbour.coordinate.x][neighbour.coordinate.y] >= 0 && board[neighbour.coordinate.x][neighbour.coordinate.y] < myHotness) {
-                    board[neighbour.coordinate.x][neighbour.coordinate.y] = myHotness;
-                }
-            }
-        }
+        
         board = getBoardWithBorderColdness(board, (byte) 4);
         printHotness(board);
         return board;
