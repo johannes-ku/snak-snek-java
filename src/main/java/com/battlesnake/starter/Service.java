@@ -1,7 +1,6 @@
 package com.battlesnake.starter;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static com.battlesnake.starter.Move.*;
@@ -12,6 +11,7 @@ public class Service {
     private static final int DEATH_SCORE = Integer.MIN_VALUE;
     private static final int FOOD_SCORE = 100;
     private static final int FOOD_HOTNESS_DEPTH = 6;
+    public static final byte STARTING_COLDNESS = (byte) 4;
 
     public Move move(MoveRequest moveRequest) {
         Result result = minimax(moveRequest, 0).stream().max(Result::compareTo).get();
@@ -70,7 +70,7 @@ public class Service {
         byte[][] board = new byte[moveRequest.board.height][moveRequest.board.width];
         
         for (Coordinate snak : moveRequest.board.food) {
-            List<Hotness> neighbours = getNeighbours(snak, moveRequest.board, (byte) 1, (byte) FOOD_HOTNESS_DEPTH);
+            List<Hotness> neighbours = getNeighbours(snak, moveRequest.board, (byte) 0, (byte) FOOD_HOTNESS_DEPTH);
             for (Hotness neighbour : neighbours) {
                 byte myHotness = (byte) (127 / neighbour.depth);
                 if (board[neighbour.coordinate.x][neighbour.coordinate.y] == 0) {
@@ -91,7 +91,7 @@ public class Service {
                 board[bodypart.x][bodypart.y] = score;
             }
             if (!snek.id.equals(moveRequest.you.id) && snek.body.size() + 1 >= moveRequest.you.body.size()) {
-                List<Hotness> neighbours = getNeighbours(snek.head, moveRequest.board, (byte) 1, (byte) 2);
+                List<Hotness> neighbours = getNeighbours(snek.head, moveRequest.board, (byte) 0, (byte) 1);
                 for (Hotness neighbour : neighbours) {
                     if (board[neighbour.coordinate.x][neighbour.coordinate.y] == 0) {
                         board[neighbour.coordinate.x][neighbour.coordinate.y] = (byte) ((Byte.MIN_VALUE / 2) / neighbour.depth);
@@ -100,22 +100,21 @@ public class Service {
             }
 
         }
-        
-        board = getBoardWithBorderColdness(board, (byte) 4);
-        printHotness(board);
-        return board;
+
+        byte[][] boardWithBorderColdness = getBoardWithBorderColdness(board, STARTING_COLDNESS);
+        printHotness(boardWithBorderColdness);
+        return boardWithBorderColdness;
     }
 
     private void printHotness(byte[][] board) {
         StringBuilder stringBuilder = new StringBuilder();
-        for (int i = 0; i < board.length; i++) {
-            byte[] row = board[i];
-            for (int j = 0; j < row.length; j++) {
-                stringBuilder.append(String.format("%1$4s", row[j]));
+        for (byte[] row : board) {
+            for (byte b : row) {
+                stringBuilder.append(String.format("%1$4s", b));
             }
             stringBuilder.append("\n");
         }
-        System.out.println(stringBuilder.toString());
+        System.out.println(stringBuilder);
     }
 
     private byte[][] getBoardWithBorderColdness(byte[][] board, byte startingColdness) {
@@ -123,27 +122,30 @@ public class Service {
             byte[] row = board[i];
             for (int j = 0; j < row.length; j++) {
                 if (board[i][j] == 0) {
-                    Integer distanceFromBorder = getDistanceFromBorder(board.length, board[0].length, i, j);
-                    if (distanceFromBorder <= startingColdness) {
-                        board[i][j] = (byte) ((byte) (startingColdness - distanceFromBorder) * -1);
+                    Coordinate distanceFromBorders = getDistanceFromBorder(board.length, board[0].length, i, j);
+                    byte totalColdness = 0;
+                    if (distanceFromBorders.x <= startingColdness) {
+                        totalColdness += (byte) ((byte) (startingColdness - distanceFromBorders.x) * -1);
                     }
+                    if (distanceFromBorders.y <= startingColdness) {
+                        totalColdness += (byte) ((byte) (startingColdness - distanceFromBorders.y) * -1);
+                    }
+                    board[i][j] = totalColdness;
                 }
             }
         }
         return board;
     }
 
-    private Integer getDistanceFromBorder(int boardHeight, int boardWidth, int x, int y) {
-        List<Integer> ints = new ArrayList<>();
-        ints.add(x);
-        ints.add(y);
-        ints.add(boardWidth - y);
-        ints.add(boardHeight - x);
-        return Collections.min(ints);
+    private Coordinate getDistanceFromBorder(int boardHeight, int boardWidth, int x, int y) {
+        Coordinate distance = new Coordinate();
+        distance.x = Math.max(x, boardHeight - x);
+        distance.y = Math.max(y, boardWidth - y);
+        return distance;
     }
 
     private List<Hotness> getNeighbours(Coordinate coordinate, Board board, byte depth, byte maxDepth) {
-        if (depth == FOOD_HOTNESS_DEPTH) {
+        if (depth == maxDepth) {
             return new ArrayList<>();
         }
         List<Hotness> neighbours = new ArrayList<>();
